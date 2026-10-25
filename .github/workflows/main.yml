@@ -1,1 +1,52 @@
 
+# Baut die Android-App (APK) bei GitHub – kostenlos, ohne Installation auf
+# dem eigenen PC. Ergebnis: Register "Actions" -> letzter Lauf ->
+# "Artifacts" -> Stempeluhr-APK (ZIP mit der .apk-Datei).
+name: Stempeluhr-APK bauen
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    # ubuntu-22.04: bei GitHub verfügbar bis 17.04.2027
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Werkzeuge installieren
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip autoconf automake libtool \
+            pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev \
+            libtinfo5 cmake libffi-dev libssl-dev
+          python -m pip install --upgrade pip
+          pip install "buildozer==1.5.0" "cython==0.29.37" virtualenv
+
+      - name: Immer denselben Signierschlüssel verwenden (Updates möglich)
+        run: |
+          mkdir -p ~/.android
+          cp stempeluhr.keystore ~/.android/debug.keystore
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+
+      - name: APK bauen (beim ersten Mal ca. 20-30 Minuten)
+        run: yes | buildozer -v android debug
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: Stempeluhr-APK
+          path: bin/*.apk
